@@ -6,6 +6,19 @@ load-bearing (remove it and a demo beat breaks), not decorative.
 
 Status legend: ✅ wired & working · 🟡 key in `.env`, integration partial/pending · ⬜ not started
 
+## Use checklist
+
+- [x] **Pioneer** — cheap-tier/adaptive inference seam exists; key present, final base URL/model still needed.
+- [ ] **TrueFoundry** — planned gateway routing; not used until gateway env vars are set.
+- [x] **Senso / cited.md** — onboarding/CLI installed and publish seam exists; final publish call pending.
+- [x] **ClickHouse** — optional cloud telemetry sink added; active when `CLICKHOUSE_URL` is set.
+- [x] **Airbyte Cloud** — documented as the no-Docker path for syncing external context into ClickHouse.
+- [x] **Composio** — notification seam exists for claim-change alerts; action selection/auth pending.
+- [x] **Thesys C1 / OpenUI** — Interrogate panel built; uses C1 when model env is set, premium fallback otherwise.
+- [ ] **x402** — not implemented yet; do not claim as working.
+- [x] **Guild.ai** — buyer agent created/published; concept + agent demo path.
+- [ ] **Render** — not deployed yet.
+
 | Sponsor | What it gives us | How Sentinel uses it | Status |
 |---|---|---|---|
 | **Pioneer** | Adaptive, OpenAI-compatible inference that improves from live traffic | Cheap tier of the judge cascade; every escalation logged back as corrective feedback | 🟡 API key in `.env`; `PIONEER_BASE_URL` + `PIONEER_MODEL` still needed from rep |
