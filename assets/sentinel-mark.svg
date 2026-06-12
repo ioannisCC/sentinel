@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Sentinel">
+  <defs>
+    <linearGradient id="sentinelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#sentinelGrad)" stroke-linecap="round">
+    <path d="M 30 132 A 70 70 0 0 1 170 132" stroke-width="10" opacity="0.32"/>
+    <path d="M 55 132 A 45 45 0 0 1 145 132" stroke-width="11" opacity="0.65"/>
+    <path d="M 80 132 A 20 20 0 0 1 120 132" stroke-width="12"/>
+  </g>
+  <circle cx="100" cy="132" r="8.5" fill="url(#sentinelGrad)"/>
+</svg>

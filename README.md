@@ -1,12 +1,10 @@
-```
-        ⌒
-       ⌒
-      •
-```
+<p align="center">
+  <img src="assets/sentinel-mark.svg" alt="Sentinel" width="128">
+</p>
 
-# Sentinel
+<h1 align="center">Sentinel</h1>
 
-**Autonomous burden of proof for the agentic web.**
+<p align="center"><b>Autonomous burden of proof for the agentic web.</b></p>
 
 Sentinel watches the marketing pages of every vendor in a category, detects
 when claims change, re-audits them against public evidence on a self-improving
