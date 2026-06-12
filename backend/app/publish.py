@@ -23,6 +23,7 @@ Never raises — publish is fire-and-forget on the demo path."""
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -267,6 +268,13 @@ async def publish(market: MarketResult) -> Optional[str]:
     published_url = _extract_cited_md_url(data) or _extract_first_url(data)
     content_id = data.get("content_id") or data.get("id")
 
+    # When the publish response doesn't carry the URL yet (Senso commits the
+    # publish_record async — `state` flips to "live" within a few seconds),
+    # fall back to a follow-up GET /org/content/{content_id} to read the
+    # destinations[].external_url that the verification listing populates.
+    if not published_url and content_id:
+        published_url = await _fetch_external_url(content_id)
+
     if published_url:
         cache[h] = {
             "url": published_url,
@@ -277,22 +285,91 @@ async def publish(market: MarketResult) -> Optional[str]:
         log.info("publish ok: %s (audit_hash=%s, content_id=%s)", published_url, h, content_id)
         return published_url
 
-    log.warning("publish: 2xx but no URL in response body keys=%s", list(data.keys())[:10])
+    log.warning(
+        "publish: 2xx but no URL in response body keys=%s content_id=%s",
+        list(data.keys())[:10], content_id,
+    )
+    return None
+
+
+async def _fetch_external_url(content_id: str) -> Optional[str]:
+    """Pull the live destinations[].external_url from the verification listing.
+    Plain GET /org/content/{id} returns only metadata; the per-destination
+    state + URL only show up in /org/content/verification. Senso commits the
+    publish_record async, so we retry once with a short backoff."""
+    url = settings.SENSO_BASE_URL.rstrip("/") + "/org/content/verification"
+    headers = {
+        "X-API-Key": settings.SENSO_API_KEY,
+        "Accept": "application/json",
+        "User-Agent": "sentinel/0.1 (cited.md publisher)",
+    }
+    params = {"status": "published", "limit": 50}
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code >= 400:
+                log.debug("verification-list %s %s", resp.status_code, (resp.text or "")[:160])
+            else:
+                data = resp.json()
+                for item in data.get("items") or []:
+                    if item.get("content_id") != content_id:
+                        continue
+                    for dest in item.get("destinations") or []:
+                        ext = dest.get("external_url")
+                        if ext and (dest.get("publisher_slug") == "cited-md" or "cited.md" in ext):
+                            if dest.get("state") in {"live", "published"}:
+                                return ext
+                            log.debug("destination state=%s (waiting)", dest.get("state"))
+        except Exception as e:  # noqa: BLE001
+            log.debug("verification-list error: %s", e)
+        await asyncio.sleep(2.0)
     return None
 
 
 def _extract_cited_md_url(data: dict) -> Optional[str]:
-    for rec in data.get("publish_records") or []:
-        slug = (rec.get("destination") or {}).get("slug") or rec.get("destination_slug")
-        url = rec.get("live_url") or rec.get("url") or rec.get("published_url")
+    # Senso's POST /content-engine/publish returns top-level
+    # `publish_destinations` (list of per-destination publish records). Each
+    # record carries `external_url` once the destination goes live + a
+    # `publisher_slug` we can match to "cited-md".
+    candidates: list[dict] = []
+    for key in ("publish_destinations", "destinations", "publish_records"):
+        v = data.get(key)
+        if isinstance(v, list):
+            candidates.extend(v)
+    pub_dest = data.get("publish_destination")
+    if isinstance(pub_dest, dict):
+        candidates.append(pub_dest)
+    for rec in candidates:
+        slug = (
+            rec.get("publisher_slug")
+            or (rec.get("destination") or {}).get("slug")
+            or rec.get("destination_slug")
+        )
+        url = (
+            rec.get("external_url")
+            or rec.get("live_url")
+            or rec.get("url")
+            or rec.get("published_url")
+        )
         if url and (slug == "cited-md" or "cited.md" in url):
             return url
     return None
 
 
 def _extract_first_url(data: dict) -> Optional[str]:
-    for rec in data.get("publish_records") or []:
-        url = rec.get("live_url") or rec.get("url") or rec.get("published_url")
+    candidates: list[dict] = []
+    for key in ("publish_destinations", "destinations", "publish_records"):
+        v = data.get(key)
+        if isinstance(v, list):
+            candidates.extend(v)
+    for rec in candidates:
+        url = (
+            rec.get("external_url")
+            or rec.get("live_url")
+            or rec.get("url")
+            or rec.get("published_url")
+        )
         if url:
             return url
-    return data.get("live_url") or data.get("url") or data.get("published_url")
+    return data.get("external_url") or data.get("live_url") or data.get("url") or data.get("published_url")

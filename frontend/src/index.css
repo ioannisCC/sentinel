@@ -13,30 +13,36 @@
   /* ── Surfaces ─────────────────────────────────────────────────────────── */
   --bg: #07070d;
   --bg-grad:
-    radial-gradient(1200px 800px at 78% -12%, rgba(99, 102, 241, 0.18) 0%, transparent 60%),
-    radial-gradient(900px 700px at 4% 112%, rgba(34, 211, 238, 0.12) 0%, transparent 55%),
+    radial-gradient(1200px 800px at 78% -12%, rgba(129, 140, 248, 0.22) 0%, transparent 60%),
+    radial-gradient(900px 700px at 4% 112%, rgba(34, 211, 238, 0.14) 0%, transparent 55%),
+    radial-gradient(700px 500px at 50% 50%, rgba(243, 234, 216, 0.04) 0%, transparent 70%),
     #07070d;
 
   /* Translucent panels — composed against the body gradient with backdrop-filter */
   --surface: rgba(18, 18, 30, 0.55);
   --surface-2: rgba(255, 255, 255, 0.04);
   --surface-3: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --border: rgba(243, 234, 216, 0.10);          /* cream-tinted hairline */
+  --border-strong: rgba(243, 234, 216, 0.20);
 
   /* RGB triples so callers can compose alpha on the glass utility */
   --glass-bg: 18, 18, 30;
-  --glass-border: 255, 255, 255;
+  --glass-border: 243, 234, 216;                /* cream halo */
 
   /* ── Type ─────────────────────────────────────────────────────────────── */
-  --text:   #e9ebf5;
-  --text-2: #bdc1d4;
-  --muted:  #8f93a8;
+  --text:   #f3ead8;                            /* cream-white */
+  --text-2: #cdc8b8;
+  --muted:  #8b8779;
+
+  /* ── Cream — third color, warms the monochrome surface ───────────────── */
+  --cream:        #f3ead8;
+  --cream-soft:   rgba(243, 234, 216, 0.08);
+  --cream-strong: rgba(243, 234, 216, 0.32);
 
   /* ── Accent — used sparingly (active states, the live pulse) ──────────── */
   --accent:      #818cf8;          /* indigo-400 — bright enough on dark */
   --accent-2:    #22d3ee;          /* cyan-400 */
-  --accent-soft: rgba(129, 140, 248, 0.18);
+  --accent-soft: rgba(129, 140, 248, 0.22);
   --accent-grad: linear-gradient(135deg, #818cf8 0%, #22d3ee 100%);
 
   /* ── Verdict palette — desaturated, AA-legible on dark glass ──────────── */
@@ -140,9 +146,17 @@ html, body, #root {
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
-/* ── Headline fade — soft top→bottom on huge display type ────────────────── */
+/* ── Headline fade — soft cream→white on huge display type ─────────────── */
 .headline-fade {
-  background: linear-gradient(180deg, #ffffff 0%, rgba(233, 235, 245, 0.78) 100%);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(243, 234, 216, 0.78) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Accent text — for the rare highlighted span (wordmark dot, live cue) — */
+.accent-text {
+  background: var(--accent-grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -151,8 +165,8 @@ html, body, #root {
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
+::-webkit-scrollbar-thumb { background: var(--cream-soft); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cream-strong); }
 
 /* ── Reveal keyframes — applied per element with stagger via animation-delay */
 @keyframes fade-up {
@@ -176,18 +190,22 @@ html, body, #root {
   to   { opacity: 0; transform: scale(0.96); }
 }
 
-.reveal-up   { animation: fade-up      0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.reveal-down { animation: fade-down    0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.reveal-left { animation: fade-in-left 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.reveal-fade { animation: fade-in      0.5s ease-out both; }
+.reveal-up    { animation: fade-up      0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.reveal-down  { animation: fade-down    0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.reveal-left  { animation: fade-in-left 0.65s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.reveal-fade  { animation: fade-in      0.55s ease-out both; }
 
-.d-0 { animation-delay: 0s;     }
-.d-1 { animation-delay: 0.08s;  }
-.d-2 { animation-delay: 0.16s;  }
-.d-3 { animation-delay: 0.24s;  }
-.d-4 { animation-delay: 0.32s;  }
-.d-5 { animation-delay: 0.40s;  }
-.d-6 { animation-delay: 0.48s;  }
+/* Staged reveals — perceptible step-by-step rhythm so the eye lands on one
+   region at a time. ~200ms between stages reads as "guided", not abrupt. */
+.d-0 { animation-delay: 0s;      }
+.d-1 { animation-delay: 0.18s;   }
+.d-2 { animation-delay: 0.36s;   }
+.d-3 { animation-delay: 0.54s;   }
+.d-4 { animation-delay: 0.72s;   }
+.d-5 { animation-delay: 0.90s;   }
+.d-6 { animation-delay: 1.08s;   }
+.d-7 { animation-delay: 1.26s;   }
+.d-8 { animation-delay: 1.44s;   }
 
 /* ── Sentinel breathing pulse — bound only to the WATCHING dot when the
    watcher task is actually running. Not decoration. */
@@ -221,4 +239,23 @@ html, body, #root {
 }
 
 /* Text selection — quiet accent */
-::selection { background: rgba(129, 140, 248, 0.28); color: #fff; }
+::selection { background: rgba(129, 140, 248, 0.28); color: var(--cream); }
+
+/* ── Progress shimmer — for the audit-in-progress strip. Subtle, real-state. */
+@keyframes progress-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+.progress-shimmer::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(243, 234, 216, 0.16) 40%,
+    rgba(129, 140, 248, 0.28) 50%,
+    rgba(243, 234, 216, 0.16) 60%,
+    transparent 100%
+  );
+  animation: progress-shimmer 1.8s ease-in-out infinite;
+}

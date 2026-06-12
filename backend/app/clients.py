@@ -135,6 +135,11 @@ class ChatResult:
     model: str
     tier: Tier
     raw: Any = None
+    # Pioneer returns x_pioneer.inference_id on every chat.completions response;
+    # the adaptive-feedback POST template is
+    # /inferences/{inference_id}/feedback. None when the cheap tier isn't on
+    # Pioneer (haiku stand-in, TF gateway, premium tier).
+    inference_id: Optional[str] = None
 
 
 _cheap_client_oai: Optional[AsyncOpenAI] = None
@@ -259,6 +264,19 @@ async def _openai_chat(
     msg = resp.choices[0].message if resp.choices else None
     text = (msg.content or "") if msg else ""
     usage = resp.usage
+    # OpenAI SDK keeps unknown response fields on `raw_response` / passthrough
+    # attrs; Pioneer's `x_pioneer.inference_id` typically lands on the parsed
+    # object as `x_pioneer` (an attr) when the SDK is permissive, otherwise in
+    # __pydantic_extra__. Walk both safely so we never raise on absence.
+    inference_id: Optional[str] = None
+    x_pioneer = getattr(resp, "x_pioneer", None)
+    if x_pioneer is None:
+        extra = getattr(resp, "__pydantic_extra__", None) or {}
+        x_pioneer = extra.get("x_pioneer")
+    if isinstance(x_pioneer, dict):
+        inference_id = x_pioneer.get("inference_id")
+    elif x_pioneer is not None:
+        inference_id = getattr(x_pioneer, "inference_id", None)
     return ChatResult(
         text=text,
         tokens_in=usage.prompt_tokens if usage else 0,
@@ -266,6 +284,7 @@ async def _openai_chat(
         model=model,
         tier=tier,
         raw=resp,
+        inference_id=inference_id,
     )
 
 
@@ -364,33 +383,42 @@ async def chat(
 
 async def record_feedback(
     *,
-    claim: str,
-    cheap_verdict: dict,
-    premium_verdict: dict,
-    extra: Optional[dict] = None,
+    inference_id: Optional[str],
+    cheap_verdict_text: str,
+    premium_verdict_text: str,
 ) -> None:
-    """One-shot POST of a cheap/premium disagreement pair. Never blocks the
-    pipeline; never raises. Caller is expected to wrap in `asyncio.create_task`
-    if it wants the call truly fire-and-forget.
+    """One-shot POST of a cheap/premium disagreement pair to Pioneer's
+    per-inference feedback endpoint. Never blocks the pipeline; never raises.
 
-    The smoke goal (per dispatch S4): ONE 2xx response logged. Anything beyond
-    that — retrain orchestration, batching, retries — is out of scope."""
-    url = settings.PIONEER_FEEDBACK_URL
-    if not url:
-        log.debug("record_feedback: skipped (PIONEER_FEEDBACK_URL blank)")
+    URL is the documented template `{base}/inferences/{inference_id}/feedback`
+    (Pioneer adaptive-inference docs). Body per docs: `{verdict, corrected_output}`.
+    Cheap-was-wrong is implicit in the escalation event — we mark verdict
+    "incorrect" and ship the premium output as the corrected one.
+
+    The smoke goal (D02 S4): ONE 2xx response logged. Anything beyond that
+    (retrain orchestration, batching, retries) is out of scope today."""
+    if not inference_id:
+        log.debug("record_feedback: skipped (no inference_id — cheap tier wasn't Pioneer)")
         return
-    if not settings.PIONEER_API_KEY:
-        log.debug("record_feedback: skipped (PIONEER_API_KEY blank)")
+    if not settings.PIONEER_API_KEY or not settings.PIONEER_BASE_URL:
+        log.debug("record_feedback: skipped (PIONEER_API_KEY or _BASE_URL blank)")
         return
+
+    base = settings.PIONEER_BASE_URL.rstrip("/")
+    # Pioneer's feedback path is /inferences/{id}/feedback under the API root,
+    # NOT under /v1 — strip a trailing /v1 so the template lands at /inferences.
+    if base.endswith("/v1"):
+        base = base[:-3]
+    url = f"{base}/inferences/{inference_id}/feedback"
 
     payload: dict[str, Any] = {
-        "model": settings.PIONEER_MODEL,
-        "claim": claim,
-        "cheap_verdict": cheap_verdict,
-        "premium_verdict": premium_verdict,
+        "verdict": "incorrect",
+        "corrected_output": premium_verdict_text,
     }
-    if extra:
-        payload["extra"] = extra
+    # Light context echo so a future Pioneer dashboard run can correlate the
+    # signal back to a specific cheap output — not retrain orchestration.
+    if cheap_verdict_text:
+        payload["cheap_output"] = cheap_verdict_text
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -399,17 +427,19 @@ async def record_feedback(
                 headers={
                     "Authorization": f"Bearer {settings.PIONEER_API_KEY}",
                     "Content-Type": "application/json",
+                    "Accept": "application/json",
                 },
                 json=payload,
             )
         log.info(
-            "record_feedback: %s %s — body=%s",
+            "record_feedback: %s %s inference_id=%s body=%s",
             resp.status_code,
             resp.reason_phrase,
+            inference_id,
             (resp.text or "")[:200],
         )
     except Exception as e:  # noqa: BLE001 — fire-and-forget by contract
-        log.warning("record_feedback failed: %s", e)
+        log.warning("record_feedback failed (inference_id=%s): %s", inference_id, e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

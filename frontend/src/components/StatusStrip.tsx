@@ -76,9 +76,9 @@ export function StatusStrip({
   return (
     <div style={{
       position: 'sticky', top: 0, zIndex: 30,
-      background: 'rgba(11,11,18,0.65)',
-      backdropFilter: 'blur(20px) saturate(160%)',
-      WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+      background: 'linear-gradient(180deg, rgba(11,11,18,0.78) 0%, rgba(11,11,18,0.60) 100%)',
+      backdropFilter: 'blur(22px) saturate(170%)',
+      WebkitBackdropFilter: 'blur(22px) saturate(170%)',
       borderBottom: '1px solid var(--border)',
       padding: '14px 28px',
       display: 'grid',
@@ -86,20 +86,22 @@ export function StatusStrip({
       alignItems: 'center',
       gap: 24,
     }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 220 }}>
+      {/* Brand — reveals first inside the strip */}
+      <div className="reveal-fade" style={{
+        display: 'flex', alignItems: 'center', gap: 12, minWidth: 220,
+      }}>
         <div style={{ color: 'var(--accent)' }}>
           <SentinelLogo size={26} />
         </div>
         <div>
-          <div style={{
-            fontFamily: 'var(--font-sans)', fontSize: 18, fontWeight: 700,
-            letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--text)',
+          <div className="headline-fade" style={{
+            fontFamily: 'var(--font-sans)', fontSize: 19, fontWeight: 700,
+            letterSpacing: '-0.03em', lineHeight: 1,
           }}>
             Sentinel
           </div>
           <div style={{
-            fontSize: 10.5, color: 'var(--muted)', marginTop: 3,
+            fontSize: 10.5, color: 'var(--muted)', marginTop: 4,
             letterSpacing: '-0.005em',
           }}>
             Autonomous burden of proof for the agentic web.
@@ -107,12 +109,17 @@ export function StatusStrip({
         </div>
       </div>
 
-      {/* Hero: market inflation */}
-      <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'center',
-      }} title="Market inflation: total claims per publicly substantiated claim. Higher = more self-reported marketing copy. We measure public substantiation, not truth.">
+      {/* Hero: market inflation — reveals second */}
+      <div
+        className="reveal-fade"
+        style={{
+          display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'center',
+          animationDelay: '0.18s',
+        }}
+        title="Market inflation: total claims per publicly substantiated claim. Higher = more self-reported marketing copy. We measure public substantiation, not truth."
+      >
         <div style={{
-          fontSize: 10, color: 'var(--muted)', letterSpacing: '0.14em',
+          fontSize: 10, color: 'var(--muted)', letterSpacing: '0.16em',
           textTransform: 'uppercase', fontWeight: 600,
         }}>
           Market inflation
@@ -120,7 +127,7 @@ export function StatusStrip({
         <div style={{
           fontFamily: 'var(--font-sans)', fontWeight: 700,
           fontSize: 32, lineHeight: 1, letterSpacing: '-0.04em',
-          color: inflation >= 2 ? 'var(--verdict-warn)' : 'var(--text)',
+          color: inflation >= 2 ? 'var(--verdict-warn)' : 'var(--cream)',
           fontVariantNumeric: 'tabular-nums',
         }}>
           {inflationLabel}
@@ -132,10 +139,11 @@ export function StatusStrip({
         )}
       </div>
 
-      {/* Counters */}
-      <div style={{
+      {/* Counters — reveal last so the eye finishes on live state */}
+      <div className="reveal-fade" style={{
         display: 'flex', alignItems: 'center', gap: 22,
         fontFamily: 'var(--font-sans)',
+        animationDelay: '0.36s',
       }}>
         <CounterCell
           label={isLive ? 'Watching' : 'Idle'}

@@ -681,25 +681,38 @@ export default function App() {
   }
 
   // ───── ACTIVE LAYOUT (running / done) ─────
-  // Constitution §4 hierarchy: status strip → activity feed (hero) → leaderboard.
+  // Sequential reveal: strip (d-0) → activity feed (d-2) → leaderboard
+  // header (d-4) → loader / first card (d-6). ~200ms between stages reads
+  // as a guided rhythm, not a SaaS dashboard flash.
   return (
     <div style={{
       position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <StatusStrip
-        apiBase={API_BASE}
-        publishedCount={publishedCount}
-        paidCount={paidCount}
-      />
+      <div className="reveal-down d-0">
+        <StatusStrip
+          apiBase={API_BASE}
+          publishedCount={publishedCount}
+          paidCount={paidCount}
+        />
+      </div>
+
+      {/* Subtle audit-in-progress shimmer just under the strip */}
+      {phase === 'running' && (
+        <div className="reveal-fade d-1 progress-shimmer" style={{
+          position: 'relative', height: 2,
+          background: 'rgba(243, 234, 216, 0.06)',
+          overflow: 'hidden',
+        }} />
+      )}
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        {/* LIVE ACTIVITY FEED — the hero. Left column, ~38%. */}
-        <aside className="reveal-left d-1" style={{
+        {/* LIVE ACTIVITY FEED — slides in second so the eye reads strip first. */}
+        <aside className="reveal-left d-2" style={{
           width: 'min(38%, 460px)', flexShrink: 0,
           display: 'flex', flexDirection: 'column',
           borderRight: '1px solid var(--border)',
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(243, 234, 216, 0.015)',
         }}>
           <ActivityFeed
             apiBase={API_BASE}
@@ -709,36 +722,34 @@ export default function App() {
         </aside>
 
         {/* Leaderboard column. */}
-        <main className="reveal-fade d-2" style={{
-          flex: 1, overflowY: 'auto', padding: '24px 32px 40px',
-        }}>
-          {/* Leaderboard header */}
-          <div style={{
+        <main style={{ flex: 1, overflowY: 'auto', padding: '24px 32px 40px' }}>
+          {/* Leaderboard header — appears third */}
+          <div className="reveal-up d-4" style={{
             display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-            marginBottom: 18, flexWrap: 'wrap', gap: 16,
+            marginBottom: 20, flexWrap: 'wrap', gap: 16,
           }}>
             <div>
               <div style={{
-                fontSize: 10, color: 'var(--muted)', letterSpacing: '0.14em',
-                textTransform: 'uppercase', fontWeight: 600, marginBottom: 4,
+                fontSize: 10, color: 'var(--muted)', letterSpacing: '0.16em',
+                textTransform: 'uppercase', fontWeight: 600, marginBottom: 6,
               }}>
                 Leaderboard
               </div>
-              <div style={{
-                fontFamily: 'var(--font-sans)', fontSize: 22, fontWeight: 700,
-                letterSpacing: '-0.025em', color: 'var(--text)',
+              <div className="headline-fade" style={{
+                fontFamily: 'var(--font-sans)', fontSize: 24, fontWeight: 700,
+                letterSpacing: '-0.025em',
               }}>
                 Most publicly substantiated
               </div>
               <div style={{
-                fontSize: 11, color: 'var(--muted)', marginTop: 4,
-                maxWidth: 520, lineHeight: 1.55,
+                fontSize: 11.5, color: 'var(--muted)', marginTop: 6,
+                maxWidth: 520, lineHeight: 1.6,
               }}>
                 Ranked by substantiation density across claims. We measure public substantiation, not truth.
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button onClick={startAudit} disabled={phase === 'running'}
                 className="pill"
                 style={{ height: 34, fontSize: 12 }}>
@@ -750,19 +761,27 @@ export default function App() {
             </div>
           </div>
 
-          {/* Loading */}
+          {/* Loader — appears fourth */}
           {phase === 'running' && sorted.length === 0 && (
-            <GlassCard padding="36px 24px" style={{ textAlign: 'center', color: 'var(--muted)' }}>
-              <div style={{
-                width: 32, height: 32, border: '2px solid var(--border)',
-                borderTop: '2px solid var(--text)', borderRadius: '50%',
-                margin: '0 auto 18px', animation: 'spin 0.9s linear infinite',
-              }} />
-              <div style={{ fontSize: 14, color: 'var(--text)', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-                Reading vendor pages…
-              </div>
-              <div style={{ fontSize: 12, marginTop: 6 }}>Cards appear as each vendor finishes.</div>
-            </GlassCard>
+            <div className="reveal-fade d-6">
+              <GlassCard padding="44px 24px" style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                <div style={{
+                  width: 36, height: 36, border: '2px solid var(--cream-soft)',
+                  borderTop: '2px solid var(--accent)', borderRadius: '50%',
+                  margin: '0 auto 20px', animation: 'spin 0.9s linear infinite',
+                }} />
+                <div style={{
+                  fontSize: 14, color: 'var(--text)',
+                  fontFamily: 'var(--font-sans)', fontWeight: 500,
+                  letterSpacing: '-0.01em',
+                }}>
+                  Reading vendor pages…
+                </div>
+                <div style={{ fontSize: 12, marginTop: 6 }}>
+                  Cards appear as each vendor finishes.
+                </div>
+              </GlassCard>
+            </div>
           )}
 
           {/* Vendor cards */}
