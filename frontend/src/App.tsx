@@ -901,8 +901,6 @@ export default function App() {
         </main>
       </div>
 
-      <InterrogatePanel apiBase={API_BASE} />
-
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
