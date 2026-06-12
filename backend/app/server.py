@@ -163,6 +163,23 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/debug/config")
+async def debug_config() -> dict:
+    from app.clients import _use_pioneer, _use_tf
+    from app.config import settings as cfg
+    return {
+        "use_pioneer": _use_pioneer(),
+        "use_tf": _use_tf(),
+        "pioneer_base_url": cfg.PIONEER_BASE_URL[:30] + "..." if cfg.PIONEER_BASE_URL else "",
+        "pioneer_model": cfg.PIONEER_MODEL,
+        "pioneer_api_key_set": bool(cfg.PIONEER_API_KEY),
+        "cheap_model": cfg.CHEAP_MODEL,
+        "premium_model": cfg.PREMIUM_MODEL,
+        "anthropic_key_set": bool(cfg.ANTHROPIC_API_KEY),
+        "tavily_key_set": bool(cfg.TAVILY_API_KEY),
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # D03 — Sentinel autonomy layer
 # ─────────────────────────────────────────────────────────────────────────────
