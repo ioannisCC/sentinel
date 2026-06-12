@@ -63,6 +63,23 @@ dashboard textarea (see `backend/data/vendors/ai_support_agents.json` for the
 preset) and run a sweep — usually 15–60 s for six vendors on the stand-in
 cheap tier.
 
+## Pricing knobs
+
+Sentinel tracks two different prices:
+
+- **Buyer fetch price**: `X402_PRICE_USD` is the amount charged when another
+  agent fetches a published verdict through the future x402 paywall. The
+  default is `$0.01` per fetch.
+- **LLM spend estimate**: `CHEAP_INPUT_PER_MTOK`, `CHEAP_OUTPUT_PER_MTOK`, and
+  `CHEAP_ATTEMPT_COST_USD` drive the dashboard's visible cheap-tier cost. The
+  attempt floor keeps infrastructure spend visible even when a sponsor or trial
+  endpoint is running on free credits.
+
+Sponsor/vendor prices should be documented in `.env.example` first, then wired
+into `backend/app/config.py` if the application needs to read them at runtime.
+For tools without a stable public price, the frontend intentionally shows
+`pricing not tracked`.
+
 ## Build map
 
 | # | Dispatch | Status |
