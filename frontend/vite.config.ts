@@ -6,8 +6,11 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/audit': 'http://localhost:8010',
-      '/healthz': 'http://localhost:8010',
+      '/audit': 'http://localhost:8000',
+      '/healthz': 'http://localhost:8000',
+      '/sentinel': 'http://localhost:8000',
+      '/activity': { target: 'http://localhost:8000', changeOrigin: true, ws: false },
+      '/test-vendor': 'http://localhost:8000',
     },
   },
   preview: {

@@ -148,59 +148,11 @@ html, body, #root {
   color: transparent;
 }
 
-/* ── Rotating-text fade-in ───────────────────────────────────────────────── */
-@keyframes rotate-fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.rotate-fade {
-  display: inline-block;
-  animation: rotate-fade-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
-
-/* ── Ambient drifting backdrop — sits behind everything ──────────────────── */
-.backdrop, .aurora-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  overflow: hidden;
-  background: transparent;
-}
-.backdrop::before,
-.backdrop::after,
-.aurora-bg::before,
-.aurora-bg::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.45;
-}
-.backdrop::before, .aurora-bg::before {
-  width: 60vw; height: 60vw; top: -22vw; left: -12vw;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.55) 0%, transparent 70%);
-  animation: drift1 28s ease-in-out infinite alternate;
-}
-.backdrop::after, .aurora-bg::after {
-  width: 55vw; height: 55vw; bottom: -18vw; right: -10vw;
-  background: radial-gradient(circle, rgba(34, 211, 238, 0.40) 0%, transparent 70%);
-  animation: drift2 32s ease-in-out infinite alternate;
-}
-@keyframes drift1 {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(6vw, 4vw) scale(1.08); }
-}
-@keyframes drift2 {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(-5vw, -3vw) scale(1.06); }
-}
 
 /* ── Reveal keyframes — applied per element with stagger via animation-delay */
 @keyframes fade-up {
@@ -237,14 +189,35 @@ html, body, #root {
 .d-5 { animation-delay: 0.40s;  }
 .d-6 { animation-delay: 0.48s;  }
 
-/* ── Sentinel breathing pulse — only ever bound to a real "watching" state */
+/* ── Sentinel breathing pulse — bound only to the WATCHING dot when the
+   watcher task is actually running. Not decoration. */
 @keyframes sentinel-pulse {
   0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.06); }
+  50%      { opacity: 1;    transform: scale(1.18); }
 }
 .sentinel-pulse {
   animation: sentinel-pulse 2.2s ease-in-out infinite;
-  color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.18);
+}
+
+/* ── Activity feed line entrance — spring slide-in, settles. Fires once per
+   real SSE event. No loop, no decoration. */
+@keyframes feed-line-in {
+  0%   { opacity: 0; transform: translateY(-10px) scale(0.985); }
+  60%  { opacity: 1; transform: translateY(2px)   scale(1.005); }
+  100% { opacity: 1; transform: translateY(0)     scale(1); }
+}
+.feed-line-in {
+  animation: feed-line-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Count flash — fires when a number changes (e.g. score tick) ─────────── */
+@keyframes count-flash {
+  from { color: var(--accent); }
+  to   { color: inherit; }
+}
+.count-flash {
+  animation: count-flash 0.6s ease-out both;
 }
 
 /* Text selection — quiet accent */

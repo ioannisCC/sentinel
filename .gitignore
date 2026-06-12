@@ -19,3 +19,10 @@ SENTINEL-BUILD-CONSTITUTION.md
 HANDOFF-SENTINEL.md
 backend/telemetry_history/
 old/
+
+# Local skill / clone state — never tracked, never pushed.
+.agents/
+skills-lock.json
+# Reference clones that may land inside the repo by accident (the canonical
+# spot is /Users/ioannis/Downloads/_ref_x402, outside the tree).
+x402/
