@@ -44,8 +44,15 @@ class Settings(BaseSettings):
     PIONEER_MODEL: str = ""
 
     # TrueFoundry AI Gateway (D01) — route both tiers through gateway.
+    # When TRUEFOUNDRY_BASE_URL + TRUEFOUNDRY_API_KEY are set, clients.py uses
+    # OpenAI-SDK-shaped calls against TF for cheap AND premium, with TF_MODEL_*
+    # as the model IDs (TF uses "provider-account/model" format from the
+    # snippet generator). Blank → fall back to the D00 stand-in pair
+    # (Anthropic-compat haiku cheap + Anthropic-native sonnet premium).
     TRUEFOUNDRY_API_KEY: str = ""
     TRUEFOUNDRY_BASE_URL: str = ""
+    TF_MODEL_CHEAP: str = ""
+    TF_MODEL_PREMIUM: str = ""
 
     # ── evidence ─────────────────────────────────────────────────────────────
     TAVILY_API_KEY: str = ""
