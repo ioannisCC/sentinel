@@ -28,13 +28,18 @@ import surface; Magnific is feature-flagged OFF for this hack."""
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
+import httpx
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 
 from app.config import cheap_effective_api_key, settings
+
+
+log = logging.getLogger("sentinel.clients")
 
 
 Tier = Literal["cheap", "premium"]
@@ -52,6 +57,18 @@ def _use_tf() -> bool:
     )
 
 
+def _use_pioneer() -> bool:
+    """All three Pioneer inputs present → cheap tier goes direct to Pioneer.
+    S1 fallback path: TF not configured, premium stays direct-Anthropic. When
+    TF later turns on with Pioneer registered as a custom provider, the TF
+    gate wins (checked first) and this becomes the local-dev fallback."""
+    return bool(
+        settings.PIONEER_BASE_URL
+        and settings.PIONEER_API_KEY
+        and settings.PIONEER_MODEL
+    )
+
+
 # COST TABLE — verified at platform.claude.com on 2026-06-10.
 # Sonnet 4.6: $3 / MTok input, $15 / MTok output (base, no cache, no batch).
 # Cheap tier is imputed (per-attempt floor in attempt_cost_usd) so the dashboard
@@ -66,6 +83,14 @@ _CHEAP_RATES = {
     "input_per_mtok": settings.CHEAP_INPUT_PER_MTOK,
     "output_per_mtok": settings.CHEAP_OUTPUT_PER_MTOK,
 }
+# Pioneer pricing is a documented PLACEHOLDER (PIONEER_INPUT_PER_MTOK /
+# PIONEER_OUTPUT_PER_MTOK in config.py default to the same imputed cheap
+# rate Receipts used). Surfaces a non-zero per-call cost — the silent-zero
+# guard the dispatch flagged. Swap rates in .env once Pioneer publishes them.
+_PIONEER_RATES = {
+    "input_per_mtok": settings.PIONEER_INPUT_PER_MTOK,
+    "output_per_mtok": settings.PIONEER_OUTPUT_PER_MTOK,
+}
 
 COST_TABLE: dict[str, dict[str, float]] = {
     settings.CHEAP_MODEL: _CHEAP_RATES,
@@ -75,6 +100,8 @@ if settings.TF_MODEL_CHEAP:
     COST_TABLE[settings.TF_MODEL_CHEAP] = _CHEAP_RATES
 if settings.TF_MODEL_PREMIUM:
     COST_TABLE[settings.TF_MODEL_PREMIUM] = _PREMIUM_RATES
+if settings.PIONEER_MODEL:
+    COST_TABLE[settings.PIONEER_MODEL] = _PIONEER_RATES
 
 
 def cost_usd(model: str, tokens_in: int, tokens_out: int) -> float:
@@ -92,9 +119,10 @@ def cost_usd(model: str, tokens_in: int, tokens_out: int) -> float:
 
 
 def attempt_cost_usd(model: str) -> float:
-    if model in {settings.CHEAP_MODEL, settings.TF_MODEL_CHEAP}:
+    cheap_ids = {settings.CHEAP_MODEL, settings.TF_MODEL_CHEAP, settings.PIONEER_MODEL}
+    if model in cheap_ids:
         return settings.CHEAP_ATTEMPT_COST_USD
-    if "/" in model and model.rsplit("/", 1)[-1] == settings.CHEAP_MODEL:
+    if "/" in model and model.rsplit("/", 1)[-1] in cheap_ids:
         return settings.CHEAP_ATTEMPT_COST_USD
     return 0.0
 
@@ -110,6 +138,7 @@ class ChatResult:
 
 
 _cheap_client_oai: Optional[AsyncOpenAI] = None
+_pioneer_client_oai: Optional[AsyncOpenAI] = None
 _premium_client_oai: Optional[AsyncOpenAI] = None
 _premium_client_native: Optional[AsyncAnthropic] = None
 
@@ -127,11 +156,27 @@ def _tf_client() -> AsyncOpenAI:
     return _cheap_client_oai
 
 
+def _pioneer_client() -> AsyncOpenAI:
+    """Pioneer's OpenAI-compatible endpoint. Used by cheap tier on the S1
+    fallback path (no TF). Cached separately from _cheap_client_oai so the
+    base_url doesn't flap if TF env later turns on."""
+    global _pioneer_client_oai
+    if _pioneer_client_oai is None or _pioneer_client_oai.base_url != settings.PIONEER_BASE_URL:
+        _pioneer_client_oai = AsyncOpenAI(
+            base_url=settings.PIONEER_BASE_URL,
+            api_key=settings.PIONEER_API_KEY,
+            max_retries=0,
+        )
+    return _pioneer_client_oai
+
+
 def cheap_client() -> AsyncOpenAI:
-    """OpenAI-shaped cheap client. TF gateway when configured, else the D00
-    Anthropic OpenAI-compat stand-in."""
+    """OpenAI-shaped cheap client. Priority: TF gateway → direct Pioneer →
+    D00 Anthropic OpenAI-compat stand-in."""
     if _use_tf():
         return _tf_client()
+    if _use_pioneer():
+        return _pioneer_client()
     global _cheap_client_oai
     if _cheap_client_oai is None or _cheap_client_oai.base_url != settings.CHEAP_BASE_URL:
         _cheap_client_oai = AsyncOpenAI(
@@ -167,10 +212,15 @@ def premium_client() -> AsyncAnthropic:
     return premium_client_native()
 
 
+def _needs_no_think(model: str) -> bool:
+    """`/no_think` disables Qwen3's chain-of-thought scratchpad. Harmless on
+    Claude/Haiku (they ignore it) but Pioneer's adaptive endpoint can be
+    sensitive to leading system-prompt tokens, so we gate by model. Forward-
+    compat: any future Qwen-class CHEAP_MODEL lights this up automatically."""
+    return "qwen" in model.lower()
+
+
 def _inject_no_think(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Receipts-era Qwen3 needed `/no_think` to disable chain-of-thought. It's
-    a no-op for Claude/Haiku via TF, harmless to leave in — keeping the seam
-    means D02 can swap CHEAP_MODEL=Qwen back without code change."""
     out: list[dict[str, str]] = []
     injected = False
     for m in messages:
@@ -243,11 +293,17 @@ async def chat(
     use_tf = _use_tf()
 
     if tier == "cheap":
-        model = settings.TF_MODEL_CHEAP if use_tf else settings.CHEAP_MODEL
+        if use_tf:
+            model = settings.TF_MODEL_CHEAP
+        elif _use_pioneer():
+            model = settings.PIONEER_MODEL
+        else:
+            model = settings.CHEAP_MODEL
+        msgs = _inject_no_think(messages) if _needs_no_think(model) else messages
         return await _openai_chat(
             cheap_client(),
             model,
-            _inject_no_think(messages),
+            msgs,
             tier="cheap",
             max_tokens=max_tokens,
             temperature=temperature,
@@ -291,6 +347,69 @@ async def chat(
         tier="premium",
         raw=resp,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pioneer adaptive-inference feedback seam (D02 S4).
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# When the cheap judge disagrees with premium (cheap confidence < threshold →
+# premium re-judges), we POST the disagreement pair to Pioneer's adaptive
+# feedback endpoint. Fire-and-forget — never blocks the pipeline.
+#
+# The dispatch's guard rail: "do NOT guess the URL". We expose
+# settings.PIONEER_FEEDBACK_URL — blank by default → record_feedback() no-ops
+# with a debug log. The rep / docs provide the actual path; set it in .env
+# and the next escalation fires a real POST.
+
+async def record_feedback(
+    *,
+    claim: str,
+    cheap_verdict: dict,
+    premium_verdict: dict,
+    extra: Optional[dict] = None,
+) -> None:
+    """One-shot POST of a cheap/premium disagreement pair. Never blocks the
+    pipeline; never raises. Caller is expected to wrap in `asyncio.create_task`
+    if it wants the call truly fire-and-forget.
+
+    The smoke goal (per dispatch S4): ONE 2xx response logged. Anything beyond
+    that — retrain orchestration, batching, retries — is out of scope."""
+    url = settings.PIONEER_FEEDBACK_URL
+    if not url:
+        log.debug("record_feedback: skipped (PIONEER_FEEDBACK_URL blank)")
+        return
+    if not settings.PIONEER_API_KEY:
+        log.debug("record_feedback: skipped (PIONEER_API_KEY blank)")
+        return
+
+    payload: dict[str, Any] = {
+        "model": settings.PIONEER_MODEL,
+        "claim": claim,
+        "cheap_verdict": cheap_verdict,
+        "premium_verdict": premium_verdict,
+    }
+    if extra:
+        payload["extra"] = extra
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {settings.PIONEER_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+        log.info(
+            "record_feedback: %s %s — body=%s",
+            resp.status_code,
+            resp.reason_phrase,
+            (resp.text or "")[:200],
+        )
+    except Exception as e:  # noqa: BLE001 — fire-and-forget by contract
+        log.warning("record_feedback failed: %s", e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

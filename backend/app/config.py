@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     PIONEER_API_KEY: str = ""
     PIONEER_BASE_URL: str = ""
     PIONEER_MODEL: str = ""
+    # The feedback / inference-history endpoint Pioneer publishes for adaptive
+    # signals. Blank by default — record_feedback() no-ops until set. The
+    # dispatch's "don't guess the URL" guard: get the exact path from the
+    # Pioneer rep / docs (likely /v1/feedback or /v1/inference-history).
+    PIONEER_FEEDBACK_URL: str = ""
+    # Pioneer pricing placeholder — same imputed rate as the generic cheap
+    # tier. Pioneer hasn't published per-MTok rates we can hard-seed; cost
+    # surfaces a non-zero number so the dashboard doesn't silent-zero. Swap
+    # for the real rate once the rep / docs page confirms.
+    PIONEER_INPUT_PER_MTOK: float = 0.05
+    PIONEER_OUTPUT_PER_MTOK: float = 0.10
 
     # TrueFoundry AI Gateway (D01) — route both tiers through gateway.
     # When TRUEFOUNDRY_BASE_URL + TRUEFOUNDRY_API_KEY are set, clients.py uses
