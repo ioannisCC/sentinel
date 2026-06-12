@@ -47,7 +47,9 @@ function shortClaim(id: string): string {
 function describePublished(e: ActivityEvent): string {
   const status = e.payload?.status as string | undefined
   if (status === 'ok') return 'published to cited.md'
-  if (status?.startsWith('skipped')) return 'publish skipped (no SENSO key)'
+  if (status === 'skipped:no_key') return 'publish skipped (no SENSO key)'
+  if (status === 'skipped:no_geo_question') return 'publish skipped (no geo_question_id)'
+  if (status?.startsWith('skipped')) return `publish skipped (${status.slice(8)})`
   return 'publish attempted'
 }
 

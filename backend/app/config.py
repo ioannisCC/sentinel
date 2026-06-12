@@ -71,6 +71,19 @@ class Settings(BaseSettings):
 
     # ── publish / pay / act / store (all blank until their dispatch) ─────────
     SENSO_API_KEY: str = ""
+    # Senso API base — apiv2 is the current path the official CLI hits.
+    SENSO_BASE_URL: str = "https://apiv2.senso.ai/api/v1"
+    # /content-engine/publish requires a geo_question_id. We do NOT run the
+    # GEO onboarding flow (it publishes marketing junk under our handle —
+    # see D04 dispatch). The id has to be provisioned out-of-band (by the
+    # Senso rep / via the docs.senso.ai dashboard). Until then, publish()
+    # no-ops and the activity feed shows skipped:no_geo_question.
+    SENSO_GEO_QUESTION_ID: str = ""
+    # Comma-separated publisher UUIDs to target. Default = cited.md only
+    # (publisher_id afa1052b-8226-438c-895e-335dcf21743a — discovered via
+    # GET /org/destinations on 2026-06-12 against the SENTINEL org).
+    SENSO_PUBLISHER_IDS: str = "afa1052b-8226-438c-895e-335dcf21743a"
+
     X402_PAY_TO: str = ""
     X402_PRICE_USD: float = 0.01
     COMPOSIO_API_KEY: str = ""

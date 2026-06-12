@@ -217,12 +217,20 @@ async def _process_entry(entry: WatchEntry) -> None:
     except Exception as e:
         log.exception("publish seam raised: %s", e)
         published_url = None
+    if published_url:
+        publish_status = "ok"
+    elif not settings.SENSO_API_KEY:
+        publish_status = "skipped:no_key"
+    elif not settings.SENSO_GEO_QUESTION_ID:
+        publish_status = "skipped:no_geo_question"
+    else:
+        publish_status = "skipped:idempotent_or_error"
     _emit_activity(
         "sentinel_published",
         vendor=entry.vendor,
         payload={
             "url": published_url,
-            "status": "ok" if published_url else "skipped:no_key",
+            "status": publish_status,
         },
     )
 
