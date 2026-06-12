@@ -57,4 +57,4 @@ services:
     pullRequestPreviewsEnabled: false
     envVars:
       - key: VITE_API_URL
-        value: https://sentinel-api.onrender.com
+        value: https://sentinel-api-67yh.onrender.com
